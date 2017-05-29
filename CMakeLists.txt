@@ -12,7 +12,7 @@ include_directories(include)
 #Add the sources
 file(GLOB SOURCES "src/*.c")
 
-option(BUILD_DOXYGEN	"Use Doxygen to create a HTML/PDF manual" ON)
+option(BUILD_DOXYGEN	"Use Doxygen to create a HTML/PDF manual" OFF)
 
 # <<<  Find LAPACK and BLAS  >>>
 find_package (LAPACK REQUIRED)

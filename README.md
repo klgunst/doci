@@ -6,7 +6,7 @@ Building
 
 DOCI can be built with CMake and depends on BLAS and LAPACK.
 
-It is parallelized for shared memmory architectures with the Open Multi-Processing (OpenMP) API.
+It is parallelized for shared memory architectures with the Open Multi-Processing (OpenMP) API.
 
 In your terminal, do:
 
@@ -17,6 +17,15 @@ In your terminal, do:
     > cd build
     > cmake ..
     > make
+
+To enable the build of the doxygen documentation change the cmake command to:
+
+    > cmake -DBUILD_DOXYGEN=ON ..
+
+Building the documentation then happens by:
+
+    > make doc
+
 
 The number of threads used by openMP can be specified by setting the OMP_NUM_THREADS variable. e.g.:
 
