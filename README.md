@@ -11,17 +11,11 @@ It is parallelized for shared memmory architectures with the Open Multi-Processi
 In your terminal, do:
 
     > cd /sourcefolder
-
     > git clone 'https://github.com/klgunst/doci.git'
-
     > cd doci
-
     > mkdir build
-
     > cd build
-
     > cmake ..
-
     > make
 
 
