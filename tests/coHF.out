@@ -1,0 +1,48 @@
+***************************
+********* OPTIONS *********
+***************************
+
+
+FCIDUMP : ../tests/co_631g_1.FCIDUMP
+
+SOLVER : DAVIDSON
+
+MAX_ITS : 1000
+
+TOL : 1.000000e-08
+
+DAVIDSON_KEEP_DEFLATE : 2
+
+DAVIDSON_KEEP_MAX_VEC : 30
+
+HF_INIT : 1
+
+ORBITALS : 28
+
+ELECTRONS : 14
+
+MS2 : 0
+
+***************************
+basissize : 1184040
+
+Hartree Fock energy is : -112.733134
+
+** EXECUTING DOCI CALCULATION **
+IT	INFO	RESIDUE	ENERGY
+1	0	5.498227e-01	-112.733134
+2	0	1.742833e-01	-112.831622
+3	0	3.862371e-02	-112.838912
+4	0	6.905317e-03	-112.839211
+5	0	1.122359e-03	-112.839219
+6	0	2.102174e-04	-112.839219
+7	0	3.254735e-05	-112.839219
+8	0	4.915755e-06	-112.839219
+9	0	7.786066e-07	-112.839219
+10	0	1.450044e-07	-112.839219
+11	0	2.047861e-08	-112.839219
+12	0	2.280316e-09	-112.839219
+Davidson converged in 12 iterations with 2.280316e-09 residue and d_energy -7.105427e-14.
+elapsed time : 33.148713 sec
+average time per matvec : 2.762393 sec
+converged energy : -112.8392190587
