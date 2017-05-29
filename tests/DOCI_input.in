@@ -1,10 +1,24 @@
+# path to the FCIDUMP file.
 FCIDUMP= ../tests/lif_631g_1.FCIDUMP
-#FCIDUMP= lili_321g.FCIDUMP
-#FCIDUMP= co_631g_1.FCIDUMP
+#FCIDUMP= ../tests/lili_321g.FCIDUMP
+#FCIDUMP= ../tests/co_631g_1.FCIDUMP
+
+# solver to be used. "D" for Davidson, "CG" for conjugate gradient, "CGP" for CG with diagonal
+# preconditioner. (default: D)
 SOLVER = D
 
-DAVIDSON_MAX_VEC=30
-DAVIDSON_KEEP=2
-MAX_ITS=50000
+# Maximum iterations to be executed. (default: 200)
+MAX_ITS=1000
+
+# tolerance (default: 1e-8)
 TOL=1e-8
-HF_INIT=1
+
+# number of vectors to be kept after deflation for davidson. (default: 2)
+DAVIDSON_KEEP=
+
+# max dimension of subspace before deflation happens in davidson. (default: 30)
+DAVIDSON_MAX_VEC=
+
+# set to 1 if initial guess is Hartree Fock wavefunction, set to 0 if initial guess is random.
+# (default: 1)
+HF_INIT=
