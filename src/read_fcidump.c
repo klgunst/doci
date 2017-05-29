@@ -77,7 +77,10 @@ void read_fcidump(char filename[], int *NORB, int *NALPHA, int * NBETA, double* 
   }
 
   ln_cnt = 1;
-  fgets(buffer, sizeof buffer, fp);
+  if(fgets(buffer, sizeof buffer, fp) == NULL){
+    fprintf(stderr, "Error in reading %s. File is wrongly formatted.\n", filename);
+    exit(EXIT_FAILURE);
+  }
   cnt = sscanf(buffer, " &FCI NORB= %d , NELEC= %d , MS2= %d , ", NORB, &N, &MS2);
   
   if(cnt != 3){
