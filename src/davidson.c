@@ -56,7 +56,9 @@ int davidson(void* data, double* result, double* energy, int max_vectors, int ke
     dsyev_(&JOBZ, &UPLO, &m, eigv, &max_vectors, eigvalues, WORK, &LWORK, &INFO);
 
     if( m == max_vectors ){   /* deflation */
-      deflate(sub_matrix, V, VA, max_vectors, basis_size, keep_deflate, eigvalues, eigv);
+      deflate(sub_matrix, V, VA, max_vectors, basis_size, keep_deflate, eigvalues, eigv, matvec, \
+          data);
+      cnt_matvecs += keep_deflate;
       m = keep_deflate;
       dims = m * max_vectors;
       dcopy_(&dims, sub_matrix, &ONE, eigv, &ONE);
@@ -94,7 +96,7 @@ int davidson(void* data, double* result, double* energy, int max_vectors, int ke
 }
 
 void new_search_vector(double* V, double* vec_t, int basis_size, int m){
-  int ONE, i;
+  int ONE, i, reortho;
   double *Vi, a;
 
   ONE = 1;
@@ -107,13 +109,36 @@ void new_search_vector(double* V, double* vec_t, int basis_size, int m){
   a = dnrm2_(&basis_size, vec_t, &ONE);
   a = 1/a;
   dscal_(&basis_size, &a, vec_t, &ONE);
+
+  /**
+   * Reorthonormalize if new V is wrong ( eg due to vec_t was very close to a certain V and
+   * and numerical errors dont assure orthogonalization )
+   */
+  reortho = 1;
+  while(reortho){
+    Vi = V;
+    reortho = 0;
+    for(i = 0 ; i < m ; i++){
+      a = - ddot_(&basis_size, Vi, &ONE, vec_t, &ONE);
+      daxpy_(&basis_size, &a, Vi, &ONE, vec_t, &ONE);
+      Vi += basis_size;
+      if(abs(a) > 1e-12){
+        reortho = 1;
+        printf("value of a[%d] = %e\n", i, a);
+      }
+    }
+    a = dnrm2_(&basis_size, vec_t, &ONE);
+    a = 1/a;
+    dscal_(&basis_size, &a, vec_t, &ONE);
+  }
+
   dcopy_(&basis_size, vec_t, &ONE, Vi, &ONE);
 }
 
 void expand_submatrix(double* submatrix, double* V, double* VA, int max_vectors, int basis_size, \
                       int m){
   double *Vm, *VAm ,D_ZERO, D_ONE;
-  int I_ONE, cnt, cnt2;
+  int I_ONE;
   char TRANS;
 
   I_ONE = 1;
@@ -179,7 +204,8 @@ void create_new_vec_t(double* residue, double* diagonal, double theta, int size)
 }
 
 void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, int basis_size, \
-              int keep_deflate, double* eigvalues, double* eigv){
+              int keep_deflate, double* eigvalues, double* eigv, void (*matvec)(double*, \
+                double*, void*), void* data){
   double *new_result, D_ZERO, D_ONE;
   int I_ONE, size_x_deflate, i;
   char NTRANS;
@@ -190,16 +216,27 @@ void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, int bas
 
   size_x_deflate = basis_size * keep_deflate;
 
-
   new_result = (double *) malloc(basis_size * keep_deflate * sizeof(double));
 
   dgemm_(&NTRANS, &NTRANS, &basis_size, &keep_deflate, &max_vectors, &D_ONE, V, &basis_size, eigv, \
           &max_vectors, &D_ZERO, new_result , &basis_size);
   dcopy_(&size_x_deflate, new_result, &I_ONE, V, &I_ONE);
 
-  dgemm_(&NTRANS, &NTRANS, &basis_size, &keep_deflate, &max_vectors, &D_ONE, VA, &basis_size, eigv,\
-          &max_vectors, &D_ZERO, new_result , &basis_size);
-  dcopy_(&size_x_deflate, new_result, &I_ONE, VA, &I_ONE);
+  for(i = 0 ; i < keep_deflate; i ++)
+    matvec(V + i * basis_size, VA + i * basis_size, data); /* only here expensive matvec needed */
+
+  /**
+   * I think doing this makes it unstable
+   *
+   * dgemm_(&NTRANS, &NTRANS, &basis_size, &keep_deflate, &max_vectors, &D_ONE, VA, &basis_size, eigv,\
+   *       &max_vectors, &D_ZERO, new_result , &basis_size);
+   *
+   * dcopy_(&size_x_deflate, new_result, &I_ONE, VA, &I_ONE);
+   *
+   * No, it is not this, but maybe keep this though, you never know it also fucks up.
+   *
+   * Doing matvecs again is more expensive, but less prone to numerical errors accumulating.
+   */
 
   free(new_result);
 

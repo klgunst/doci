@@ -27,7 +27,8 @@ endif (OPENMP_FOUND)
 # set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
 
 # highly optimized
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+#set_source_files_properties(src/DOCI.c PROPERTIES COMPILE_FLAGS -O3)
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -Wall")
 
 
 if (BUILD_DOXYGEN)
