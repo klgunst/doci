@@ -188,7 +188,13 @@ unsigned int* initialize_Y1(const int N, const int L){
   unsigned int *x, *result, *x_temp;
   
   NminL = L - N + 1;
-  result = ( unsigned int * ) malloc(sizeof(unsigned int) * N * NminL);
+  /**
+   * allocating some extra space for the Y array
+   * Illigal values otherwise could be read in the occ_to_cnt function,
+   * which are however multiplied by 0, so no errors of the results are because of that,
+   * only the reading of illegal values.
+   */
+  result = ( unsigned int * ) calloc(N*L - N*N + L, sizeof(unsigned int));
   x = initialize_x(N, L);
 
   index = 0;
@@ -405,6 +411,10 @@ int occ_to_cnt(int* occ, unsigned int* Y, const int N, const int L){
   /**
    * Faster than if(occ[i]) result += Y[N_el + i]
    * to be expected due to pipelining i guess?
+   * I should appoint more memory to Y because invalid indices can be read (Y index is maximal LN \
+   * -N*N +N while this can read up to NL - N*N + L - 1)
+   *  however the conflicting values are multiplied with zero so they dont give a problem in results
+   *  only in memory reading!!!
    */
   for( i = 0 ; i < L; i++){
     result += occ[i]*Y[N_el + i];
