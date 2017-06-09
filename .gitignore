@@ -2,3 +2,4 @@ build
 Build
 *.swp
 tags
+*.taghl
