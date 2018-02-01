@@ -1,7 +1,7 @@
 # path to the FCIDUMP file.
-FCIDUMP= ../tests/lif_631g_1.FCIDUMP
-#FCIDUMP= ../tests/lili_321g.FCIDUMP
-#FCIDUMP= ../tests/co_631g_1.FCIDUMP
+#FCIDUMP= lif_631g_1.FCIDUMP
+#FCIDUMP= lili_321g.FCIDUMP
+FCIDUMP= co_631g_1.FCIDUMP
 
 # solver to be used. "D" for Davidson, "CG" for conjugate gradient, "CGP" for CG with diagonal
 # preconditioner. (default: D)
@@ -21,4 +21,4 @@ DAVIDSON_MAX_VEC=
 
 # set to 1 if initial guess is Hartree Fock wavefunction, set to 0 if initial guess is random.
 # (default: 1)
-HF_INIT=
+HF_INIT= 0

@@ -6,8 +6,8 @@
  * \brief The Davidson header file.
  *
  * This file contains the Davidson optimization with diagonal preconditioner.
+ * For algorithm see http://people.inf.ethz.ch/arbenz/ewp/Lnotes/chapter12.pdf algorithm 12.1
  */
-
 
 /**
  * \brief main function for Davidson algorithm.
@@ -22,19 +22,7 @@
  * \param [in] basis_size The dimension of the problem.
  * \param [in] max_its Maximum number of iterations.
  */
-int davidson(void* data, double* result, double* energy, int max_vectors, int keep_deflate, \
-    double davidson_tol, void (*matvec)(double*, double*, void*), double* diagonal, int basis_size,\
+int davidson(double* result, double* energy, int max_vectors, int keep_deflate, \
+    double davidson_tol, void (*matvec)(double*, double*), double* diagonal, int basis_size,\
     int max_its);
-
-void new_search_vector(double*, double*, int, int);
-
-void expand_submatrix(double*, double*, double*, int, int, int);
-
-double calculate_residue(double*, double*, double*, double, double*, double*, int, int);
-
-void create_new_vec_t(double*, double*, double, int);
-
-void deflate(double*, double*, double*, int, int, int, double*, double*, void (*matvec)(double*, \
-      double*, void*), void*);
-
 #endif

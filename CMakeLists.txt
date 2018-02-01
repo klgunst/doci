@@ -5,17 +5,38 @@ set(doci_VERSION "${doci_MMP_VERSION} (2017-05-28)")
 set(doci_AUTHORS "Klaas Gunst")
 set(doci_DESCRIPTION "An implementation of DOCI (doubly occupied configuration interaction)")
 set(doci_EMAIL "klaas.gunst@ugent.be")
-
-#Bring the headers into the project
-include_directories(include)
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Modules")
 
 #Add the sources
-file(GLOB SOURCES "src/*.c")
+file(GLOB SOURCES "${CMAKE_SOURCE_DIR}/src/*.c")
 
 option(BUILD_DOXYGEN	"Use Doxygen to create a HTML/PDF manual" OFF)
+option(DEBUG 		"Debug symbols used" 			  OFF)
+option(DEBUGFLAG        "Compile with DDEBUG flag" 		  OFF)
+option(LOWOPT 		"Optimization level of compilation O/O3"  OFF)
+option(DAVIDIT 		"Shows the Davidson iterations"           OFF)
 
-# <<<  Find LAPACK and BLAS  >>>
-find_package (LAPACK REQUIRED)
+if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
+    find_package(MKL)
+    if(MKL_FOUND)
+	message("MKL found")
+	include_directories(${MKL_INCLUDE_DIRS})
+	set (LAPACK_LIBRARIES "${MKL_LIBRARIES}")
+    else()
+	message("MKL not found")
+	find_package (LAPACK REQUIRED)
+    endif()
+else()
+    find_package (LAPACK REQUIRED)
+endif()
+
+include_directories(include)
+
+if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w3")
+else()
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+endif()
 
 # OpenMP
 find_package (OpenMP)
@@ -23,13 +44,28 @@ if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
 endif (OPENMP_FOUND)
 
-# debug symbols
-# set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
-
-# highly optimized
-#set_source_files_properties(src/DOCI.c PROPERTIES COMPILE_FLAGS -O3)
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -Wall")
-
+if (DEBUG)
+    if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
+	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+    else()
+	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -fsanitize=address")
+    endif()
+endif (DEBUG)
+if (DEBUGFLAG)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDEBUG")
+endif (DEBUGFLAG)
+if(DAVIDIT)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDAVIDIT")
+endif (DAVIDIT)
+if ( LOWOPT )
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+else ()
+    if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
+	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -xHOST -O3")
+    else()
+	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -O3")
+    endif()
+endif ( LOWOPT )
 
 if (BUILD_DOXYGEN)
     find_package (Doxygen)
@@ -41,4 +77,4 @@ if (BUILD_DOXYGEN)
 endif(BUILD_DOXYGEN)
 
 add_executable(doci ${SOURCES})
-target_link_libraries(doci ${LAPACK_LIBRARIES})
+target_link_libraries(doci ${LAPACK_LIBRARIES} m)

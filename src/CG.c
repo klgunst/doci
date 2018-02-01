@@ -1,19 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 #include <sys/time.h>
 
 #include "lapack.h"
 #include "debug.h"
 #include "CG.h"
+#include "macros.h"
 
 /* For algorithm see http://people.inf.ethz.ch/arbenz/ewp/Lnotes/chapter13.pdf, algorithm 13.1 */
-int ray_q(void (*matvec)(double*, double*, void*), void *data, double* M, double* vec,\
+int ray_q(void (*matvec)(double*, double*), double* M, double* vec,\
     int size, double *energy, double cg_tol, int max_its, double* precond){
   /* here i still assume M == NULL, no preconditioner and generalized eig
    * implemented yet */
-  assert(M == NULL);
-
   int its, I_ONE, I_TWO, ITYPE, LWORK, INFO, cnt;
   double rho, minrho, normq_g, quot_normq, normq_g_prev, cutoff, d_energy, normq;
   double D_TWO, D_ONE, D_ZERO, mONE;
@@ -23,6 +23,10 @@ int ray_q(void (*matvec)(double*, double*, void*), void *data, double* M, double
   long long t_elapsed;
   double d_elapsed;
 
+  if( M != NULL ){
+    fprintf(stderr, "%s:%d @ %s :: Wrong M!\n", __FILE__, __LINE__, __func__);
+    exit(EXIT_FAILURE);
+  }
   /* LAPACK init */
   D_TWO = 2;
   D_ONE = 1;
@@ -36,20 +40,23 @@ int ray_q(void (*matvec)(double*, double*, void*), void *data, double* M, double
   TRANS = 'T';
   NTRANS = 'N';
   UPLO = 'U';
+  *energy = 0;
 
-  x = (double*) malloc(size * 2 * sizeof(double));
-  Ax = (double*) malloc(size * 2 * sizeof(double));
-  g = (double*) malloc(size * sizeof(double));
-  A = (double*) malloc(2 * 2 * sizeof(double));
-  B = (double*) malloc(2 * 2 * sizeof(double));
-  eigv = (double*) malloc(2 * sizeof(double));
-  WORK = (double*) malloc(LWORK * sizeof(double));
+  d_energy = 0;
+
+  x = safe_malloc(size * 2, double);
+  Ax = safe_malloc(size * 2, double);
+  g = safe_malloc(size, double);
+  A = safe_malloc(2 * 2,  double);
+  B = safe_malloc(2 * 2, double);
+  eigv = safe_malloc(2, double);
+  WORK = safe_malloc(LWORK, double);
   
-  precond_inv = (double*) malloc(size * sizeof(double));
+  precond_inv = safe_malloc(size, double);
   cutoff = 1e-12;
   if(precond != NULL){
     for(cnt = 0 ; cnt < size; cnt++)
-      if(abs(precond[cnt]) > cutoff)
+      if(fabs(precond[cnt]) > cutoff)
         precond_inv[cnt] = 1/precond[cnt];
       else
         precond_inv[cnt] = 1/cutoff;
@@ -61,11 +68,11 @@ int ray_q(void (*matvec)(double*, double*, void*), void *data, double* M, double
 
   its = 0;
   gettimeofday(&t_start, NULL);
-  DPRINTL("\n");
-  DPRINT("IT\tINFO\tRESIDUE\tENERGY\n");
+  printf("\n");
+  printf("IT\tINFO\tRESIDUE\tENERGY\n");
 
   dcopy_(&size, vec, &I_ONE, x, &I_ONE);
-  matvec(x, Ax, data);
+  matvec(x, Ax);
   rho = ddot_(&size, Ax, &I_ONE, x, &I_ONE);
   minrho = -rho;
   dcopy_(&size, Ax, &I_ONE, g, &I_ONE);
@@ -76,6 +83,7 @@ int ray_q(void (*matvec)(double*, double*, void*), void *data, double* M, double
   if(precond != NULL)
     for(cnt = 0 ; cnt < size; cnt++) g[cnt] = g[cnt] * precond_inv[cnt];
   normq_g = ddot_(&size, g, &I_ONE, g, &I_ONE);
+  normq_g_prev = ddot_(&size, g, &I_ONE, g, &I_ONE);
 
   printf("%d\t%d\t%e\t%f\n", its, 0, normq_g, rho);
 
@@ -90,7 +98,7 @@ int ray_q(void (*matvec)(double*, double*, void*), void *data, double* M, double
     }
     
     /* eigenvalue problem */
-    matvec(p, Ap, data);
+    matvec(p, Ap);
     dgemm_(&TRANS, &NTRANS, &I_TWO, &I_TWO, &size, &D_ONE, x, &size, Ax, &size, &D_ZERO, A, &I_TWO);
     dgemm_(&TRANS, &NTRANS, &I_TWO, &I_TWO, &size, &D_ONE, x, &size,  x, &size, &D_ZERO, B, &I_TWO);
     dsygv_(&ITYPE, &JOBZ, &UPLO, &I_TWO, A, &I_TWO, B, &I_TWO, eigv, WORK, &LWORK, &INFO);
@@ -99,7 +107,7 @@ int ray_q(void (*matvec)(double*, double*, void*), void *data, double* M, double
     daxpy_(&size, A+1, p, &I_ONE, x, &I_ONE);
     
     /*
-    matvec(x, Ax, data);
+    matvec(x, Ax);
     */
     dscal_(&size, A, Ax, &I_ONE);
     daxpy_(&size, A+1, Ap, &I_ONE, Ax, &I_ONE);
@@ -135,14 +143,22 @@ int ray_q(void (*matvec)(double*, double*, void*), void *data, double* M, double
   dcopy_(&size, x, &I_ONE, vec, &I_ONE);
   *energy = rho;
 
-  free(x);
-  free(Ax);
-  free(g);
-  free(A);
-  free(B);
-  free(eigv);
-  free(WORK);
-  free(precond_inv);
+  safe_free(x);
+  safe_free(Ax);
+  safe_free(g);
+  safe_free(A);
+  safe_free(B);
+  safe_free(eigv);
+  safe_free(WORK);
+  safe_free(precond_inv);
+  x = NULL;
+  Ax = NULL;
+  g = NULL;
+  A = NULL;
+  B = NULL;
+  eigv = NULL;
+  WORK = NULL;
+  precond_inv = NULL;
 
   return (its <= max_its);
 }

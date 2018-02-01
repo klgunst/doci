@@ -1,47 +1,45 @@
-***************************
-********* OPTIONS *********
-***************************
+doci -- An implementation of DOCI (Doubly Occupied Configuration Interaction)
 
+input-file
+----------
 
-FCIDUMP : ../tests/lif_631g_1.FCIDUMP
+FCIDUMP          = lif_631g_1.FCIDUMP
 
-SOLVER : DAVIDSON
+SOLVER           = DAVIDSON
 
-MAX_ITS : 1000
+MAX_ITS          = 1000
 
-TOL : 1.000000e-08
+TOL              = 1.000000e-08
 
-DAVIDSON_KEEP_DEFLATE : 2
+DAVIDSON_KEEP    = 2
 
-DAVIDSON_KEEP_MAX_VEC : 30
+DAVIDSON_MAX_VEC = 30
 
-HF_INIT : 1
+INITIAL          = Hartree-Fock
 
-ORBITALS : 28
-
-ELECTRONS : 12
-
-MS2 : 0
-
-***************************
-basissize : 376740
-
-Hartree Fock energy is : -106.932928
-
-** EXECUTING DOCI CALCULATION **
+----------
+	** executing DOCI (4 threads)
+	** N = (6,6)
+	** L = 28
+	** basis size : 376740
+----------
+--------------------------------------------------
 IT	INFO	RESIDUE	ENERGY
 1	0	5.126517e-01	-106.932928
-2	0	1.010444e-01	-106.999072
-3	0	1.520516e-02	-107.000682
-4	0	2.077051e-03	-107.000714
-5	0	5.424344e-04	-107.000715
-6	0	8.317507e-05	-107.000715
-7	0	1.165323e-05	-107.000715
-8	0	2.792897e-06	-107.000715
-9	0	3.718320e-07	-107.000715
-10	0	4.688869e-08	-107.000715
-11	0	9.582705e-09	-107.000715
-Davidson converged in 11 iterations with 9.582705e-09 residue and d_energy -2.842171e-14.
-elapsed time : 4.990975 sec
-average time per matvec : 0.453725 sec
-converged energy : -107.0007150075
+2	0	9.646576e-02	-106.999231
+3	0	1.316083e-02	-107.000693
+4	0	1.405594e-03	-107.000715
+5	0	1.382725e-04	-107.000715
+6	0	1.704866e-05	-107.000715
+7	0	1.587578e-06	-107.000715
+8	0	1.859355e-07	-107.000715
+9	0	1.719773e-08	-107.000715
+10	0	1.656320e-09	-107.000715
+Davidson converged in 10 iterations with 1.656320e-09 residue and d_energy 1.421085e-14.
+elapsed time : 0.606516 sec
+average time per matvec : 0.060652 sec
+		 ** EXIT CODE SOLVER : 0
+		 ** DOCI ENERGY : -107.0007150075
+		 ** ELAPSED TIME : 0.704204
+--------------------------------------------------
+exiting...
