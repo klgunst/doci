@@ -21,4 +21,4 @@ DAVIDSON_MAX_VEC=
 
 # set to 1 if initial guess is Hartree Fock wavefunction, set to 0 if initial guess is random.
 # (default: 1)
-HF_INIT= 0
+HF_INIT= 1

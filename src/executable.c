@@ -20,7 +20,7 @@ int do_doci;
 /* ============================================================================================== */
 
 static void initialize_program(int argc, char *argv[], char* solver, int *max_its, double *tol, 
-    int *david_keep, int *david_max_vec, int *HF_init);
+    int *david_keep, int *david_max_vec, int *HF_init, void **dat );
 
 static void read_inputfile(char filename[], char dumpfil[], char solver[], int *max_its, double* tol, 
     int *david_keep, int *david_max_vec, int *HF_init);
@@ -28,13 +28,13 @@ static void read_inputfile(char filename[], char dumpfil[], char solver[], int *
 static void print_inputfile(char *dumpfil, char *solver, int max_its, double tol, int david_keep, 
     int david_max_vec, int HF_init);
 
-static double* make_init_guess(int HF_init);
+static double* make_init_guess(int HF_init, double* diagonal, void* vdat );
 
-static int get_basis_size(void);
+static int get_basis_size( void *dat );
 
-static double* get_diagonal(void);
+static double* get_diagonal(void *dat );
 
-static void cleanup_data(void);
+static void cleanup_data( void** dat );
 
 /* ============================================================================================== */
 
@@ -52,20 +52,22 @@ int main(int argc, char* argv[] ){
   char solver[20];
   long long t_elapsed;
   double d_elapsed;
+  void *dat;
   struct timeval t_start, t_end;
   gettimeofday(&t_start, NULL);
 
   /* line by line write-out */
   setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
 
-  initialize_program(argc, argv, solver, &max_its, &tol, &david_keep, &david_max_vec, &HF_init);
-  basis_size = get_basis_size();
-  result = make_init_guess(HF_init);
-  diagonal = get_diagonal();
+  initialize_program(argc, argv, solver, &max_its, &tol, &david_keep, &david_max_vec, &HF_init,
+      &dat );
+  basis_size = get_basis_size( dat );
+  diagonal = get_diagonal( dat );
+  result = make_init_guess(HF_init, diagonal, dat );
 
   printf("--------------------------------------------------\n");
   info = sparse_eigensolve(result, basis_size, &energy, doci_matvec, diagonal, NULL, tol,
-      max_its, solver, david_keep, david_max_vec);
+      max_its, solver, david_keep, david_max_vec, dat );
 
   gettimeofday(&t_end, NULL);
   t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + t_end.tv_usec - t_start.tv_usec;
@@ -78,7 +80,7 @@ int main(int argc, char* argv[] ){
          "exiting...\n",
          info, do_doci ? "DOCI" : "FCI", energy, d_elapsed);
 
-  cleanup_data();
+  cleanup_data( &dat );
   safe_free(result);
 
   return EXIT_SUCCESS;
@@ -170,7 +172,8 @@ struct arguments{
 static struct argp argp = { options, parse_opt, args_doc, doc };
 
 static void initialize_program(int argc, char *argv[], char* solver, int *max_its, double *tol, 
-    int *david_keep, int *david_max_vec, int *HF_init){
+    int *david_keep, int *david_max_vec, int *HF_init, void** dat )
+{
   char dumpfil[255];
   struct arguments arguments;
 
@@ -181,17 +184,18 @@ static void initialize_program(int argc, char *argv[], char* solver, int *max_it
   /* Parse our arguments; every option seen by parse_opt will be reflected in arguments. */
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
-  if(!do_doci){
-    fprintf(stderr, "Only DOCI works at this moment!\n");
+  if( !do_doci )
+  {
+    fprintf( stderr, "Only DOCI works at this moment!\n" );
     exit(EXIT_FAILURE);
   }
 
   read_inputfile(arguments.inputfile, dumpfil, solver, max_its, tol, david_keep, david_max_vec,
       HF_init);
-  print_inputfile(dumpfil, solver, *max_its, *tol, *david_keep, *david_max_vec, *HF_init);
+  print_inputfile( dumpfil, solver, *max_its, *tol, *david_keep, *david_max_vec, *HF_init );
 
-  if(do_doci)
-    fill_doci_data(dumpfil);
+  if( do_doci )
+    fill_doci_data( dumpfil, dat );
 }
 
 static void read_inputfile(char filename[], char dumpfil[], char solver[], int *max_its, double* tol, 
@@ -263,13 +267,26 @@ static void print_inputfile(char *dumpfil, char *solver, int max_its, double tol
   );
 }
 
-static double* make_init_guess(int HF_init){
-  int basis_size = get_basis_size();
+static double* make_init_guess(int HF_init, double* diagonal, void* vdat )
+{
+  int basis_size = get_basis_size( vdat );
   double *result = safe_calloc(basis_size, double);
   int ONE = 1;
   
   if(HF_init)
-    result[0] = 1;
+  {
+    int i;
+    int ind = 0;
+    double low = diagonal[ 0 ] + 1;
+    for( i = 0 ; i < basis_size ; i++ )
+      if( low > diagonal[ i ] )
+      {
+        low = diagonal[ i ];
+        ind = i;
+      }
+    result[ ind ] = 1;
+  }
+
   else{
     int cnt;
     double norm;
@@ -281,23 +298,26 @@ static double* make_init_guess(int HF_init){
   return result;
 }
 
-static int get_basis_size(void){
-  if(do_doci)
-    return doci_get_basis_size();
+static int get_basis_size( void *dat )
+{
+  if( do_doci )
+    return doci_get_basis_size( dat );
   else
     return 0;
   /*  return fci_get_basis_size(); */
 }
 
-static double* get_diagonal(void){
-  if(do_doci)
-    return doci_get_diagonal();
+static double* get_diagonal( void *dat )
+{
+  if( do_doci )
+    return doci_get_diagonal( dat );
   else
     return NULL;
   /*  return fci_get_diagonal(); */
 }
 
-static void cleanup_data(void){
-  if(do_doci)
-    doci_cleanup_data();
+static void cleanup_data( void **dat )
+{
+  if( do_doci )
+    doci_cleanup_data( dat );
 }

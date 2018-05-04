@@ -10,8 +10,8 @@
 #include "macros.h"
 
 /* For algorithm see http://people.inf.ethz.ch/arbenz/ewp/Lnotes/chapter13.pdf, algorithm 13.1 */
-int ray_q(void (*matvec)(double*, double*), double* M, double* vec,\
-    int size, double *energy, double cg_tol, int max_its, double* precond){
+int ray_q(void (*matvec)(double*, double*, void*), double* M, double* vec,\
+    int size, double *energy, double cg_tol, int max_its, double* precond, void* vdat){
   /* here i still assume M == NULL, no preconditioner and generalized eig
    * implemented yet */
   int its, I_ONE, I_TWO, ITYPE, LWORK, INFO, cnt;
@@ -72,7 +72,7 @@ int ray_q(void (*matvec)(double*, double*), double* M, double* vec,\
   printf("IT\tINFO\tRESIDUE\tENERGY\n");
 
   dcopy_(&size, vec, &I_ONE, x, &I_ONE);
-  matvec(x, Ax);
+  matvec(x, Ax, vdat);
   rho = ddot_(&size, Ax, &I_ONE, x, &I_ONE);
   minrho = -rho;
   dcopy_(&size, Ax, &I_ONE, g, &I_ONE);
@@ -98,7 +98,7 @@ int ray_q(void (*matvec)(double*, double*), double* M, double* vec,\
     }
     
     /* eigenvalue problem */
-    matvec(p, Ap);
+    matvec(p, Ap, vdat);
     dgemm_(&TRANS, &NTRANS, &I_TWO, &I_TWO, &size, &D_ONE, x, &size, Ax, &size, &D_ZERO, A, &I_TWO);
     dgemm_(&TRANS, &NTRANS, &I_TWO, &I_TWO, &size, &D_ONE, x, &size,  x, &size, &D_ZERO, B, &I_TWO);
     dsygv_(&ITYPE, &JOBZ, &UPLO, &I_TWO, A, &I_TWO, B, &I_TWO, eigv, WORK, &LWORK, &INFO);

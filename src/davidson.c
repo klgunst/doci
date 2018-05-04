@@ -29,8 +29,9 @@ static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, 
 
 /* For algorithm see http://people.inf.ethz.ch/arbenz/ewp/Lnotes/chapter12.pdf, algorithm 12.1 */
 int davidson(double* result, double* energy, int max_vectors, int keep_deflate, \
-    double davidson_tol, void (*matvec)(double*, double*), double* diagonal, int basis_size,\
-    int max_its){
+    double davidson_tol, void (*matvec)(double*, double*, void*), double* diagonal, int basis_size,
+    int max_its, void *vdat )
+{
 
   /* LAPACK initialization */
   char JOBZ = 'V';
@@ -70,7 +71,7 @@ int davidson(double* result, double* energy, int max_vectors, int keep_deflate, 
     int dims;
     int INFO = 0;
     new_search_vector(V, vec_t, basis_size, m);
-    matvec(V + m * basis_size, VA + m * basis_size); /* only here expensive matvec needed */
+    matvec(V + m * basis_size, VA + m * basis_size, vdat); /* only here expensive matvec needed */
     expand_submatrix(sub_matrix, V, VA, max_vectors, basis_size, m);
     m++;
     dims = m * max_vectors;
