@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <math.h>
+#include <omp.h>
 
 #include "lapack.h"
 #include "debug.h"
@@ -14,13 +15,14 @@
 
 static void new_search_vector(double* V, double* vec_t, int basis_size, int m);
 
-static void expand_submatrix(double* submatrix, double* V, double* VA, int max_vectors, 
-    int basis_size, int m);
+static void expand_submatrix(double* const submatrix, double* const V, double* const VA, 
+    const int max_vectors, const int basis_size, const int m);
 
-static double calculate_residue(double* residue, double *result, double* eigv, double theta, 
-    double* V, double* VA, int basis_size, int m);
+static double calculate_residue( double* const residue, double* const result, double* const eigv, 
+    const double theta, double* const V, double* const VA, const int basis_size, const int m );
 
-static void create_new_vec_t(double* residue, double* diagonal, double theta, int size);
+static void create_new_vec_t( double* const residue, double* const diagonal, const double theta, 
+    const int size );
 
 static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, int basis_size, 
     int keep_deflate, double* eigv);
@@ -173,40 +175,49 @@ static void new_search_vector(double* V, double* vec_t, int basis_size, int m){
   dcopy_(&basis_size, vec_t, &ONE, Vi, &ONE);
 }
 
-static void expand_submatrix(double* submatrix, double* V, double* VA, int max_vectors, 
-    int basis_size, int m){
+static void expand_submatrix(double* const submatrix, double* const V, double* const VA, 
+    const int max_vectors, const int basis_size, const int m)
+{
 
-  int I_ONE = 1;
-  double D_ONE = 1.0;
-  double D_ZERO = 0.0;
-  char TRANS = 'T';
+  const int I_ONE = 1;
 
-  double *Vm = V + basis_size * m;
-  double *VAm = VA + basis_size * m;
+  double* const VAm = VA + basis_size * m;
+  int i;
 
-  dgemv_(&TRANS, &basis_size, &m, &D_ONE, V, &basis_size, VAm, &I_ONE, &D_ZERO, 
-      submatrix + m*max_vectors, &I_ONE);
-  submatrix[m*max_vectors + m] = ddot_(&basis_size, Vm, &I_ONE, VAm, &I_ONE);
+#pragma omp parallel for default( none ) private(i) 
+  for( i = 0 ; i < m + 1 ; ++i )
+  {
+    submatrix[ m * max_vectors + i ] = ddot_( &basis_size, V + basis_size * i, &I_ONE,
+        VAm, &I_ONE );
+  }
 }
 
-static double calculate_residue(double* residue, double *result, double* eigv, double theta, 
-    double* V, double* VA, int basis_size, int m){
-  double D_ZERO = 0;
-  double D_ONE = 1;
-  int I_ONE = 1;
-  char NTRANS = 'N';
+static double calculate_residue( double* const residue, double* const result, double* const eigv, 
+    const double theta, double* const V, double* const VA, const int basis_size, const int m )
+{
+  const int I_ONE = 1;
+  int i;
+  double norm2 = 0;
 
-  double mtheta = -theta;
-  dgemv_(&NTRANS, &basis_size, &m, &D_ONE, V, &basis_size, eigv, &I_ONE, &D_ZERO, result, &I_ONE);
-  dgemv_(&NTRANS,&basis_size,&m, &D_ONE, VA, &basis_size, eigv, &I_ONE, &D_ZERO, residue, &I_ONE);
-  daxpy_(&basis_size, &mtheta, result, &I_ONE, residue, &I_ONE);
-  return dnrm2_(&basis_size, residue, &I_ONE);
+#pragma omp parallel for default(none) private(i) reduction(+:norm2)
+  for( i = 0 ; i < basis_size ; ++i )
+  {
+    result[ i ] = ddot_( &m, V + i, &basis_size, eigv, &I_ONE );
+    residue[ i ] = ddot_( &m, VA + i, &basis_size, eigv, &I_ONE );
+    residue[ i ] -= theta * result[ i ];
+    norm2 += residue[ i ] * residue[ i ];
+  }
+
+  return sqrt( norm2 );
 }
 
-static void create_new_vec_t(double* residue, double* diagonal, double theta, int size){
+static void create_new_vec_t(double* const residue, double* const diagonal, const double theta, 
+    const int size)
+{
   /* quick implementation */
   int i;
-  double cutoff = 1e-12;
+  const double cutoff = 1e-12;
+#pragma omp parallel for default(none) private(i)
   for( i = 0 ; i < size ; i++)
     if(fabs(diagonal[i] - theta) > cutoff)
       residue[i] = residue[i] / fabs(diagonal[i] - theta);
@@ -232,27 +243,11 @@ static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, 
           &max_vectors, &D_ZERO, new_result , &basis_size);
   dcopy_(&size_x_deflate, new_result, &I_ONE, V, &I_ONE);
 
-  /*
-  for(i = 0 ; i < keep_deflate; i ++)
-    matvec(V + i * basis_size, VA + i * basis_size); *//* only here expensive matvec needed */
   dgemm_(&NTRANS, &NTRANS, &basis_size, &keep_deflate, &max_vectors, &D_ONE, VA, &basis_size, eigv,\
      &max_vectors, &D_ZERO, new_result , &basis_size);
 
   dcopy_(&size_x_deflate, new_result, &I_ONE, VA, &I_ONE);
  
-  /**
-   * I think doing this makes it unstable
-   *
-   * dgemm_(&NTRANS, &NTRANS, &basis_size, &keep_deflate, &max_vectors, &D_ONE, VA, &basis_size, eigv,\
-   *       &max_vectors, &D_ZERO, new_result , &basis_size);
-   *
-   * dcopy_(&size_x_deflate, new_result, &I_ONE, VA, &I_ONE);
-   *
-   * No, it is not this, but maybe keep this though, you never know it also fucks up.
-   *
-   * Doing matvecs again is more expensive, but less prone to numerical errors accumulating.
-   */
-
   safe_free(new_result);
 
   for( i = 0 ; i < keep_deflate; i++)

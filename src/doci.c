@@ -50,11 +50,11 @@ static double* init_Viikk(const double* const two_p_int, const unsigned int L );
 static void fill_occupation( unsigned int bitstring, int occ[], const unsigned int N, const
     unsigned int L );
 
-static const int next_bitstring( const unsigned int address, unsigned int *exc_address, 
+static int next_bitstring( const unsigned int address, unsigned int *exc_address, 
     int occ[], int exc_occ[], int* to_incr, int* augm, double** V, const unsigned int L, const
     unsigned int N, const unsigned int LminN, const int *Y, double *Viikk, int **currpair );
 
-static const int prev_bitstring( const unsigned int address, unsigned int *exc_address, 
+static int prev_bitstring( const unsigned int address, unsigned int *exc_address, 
     int occ[], int exc_occ[], int* to_incr, int* augm, double** V, const unsigned int L, const
     unsigned int N, const unsigned int LminN, const int *Y, double *Viikk, int **currpair );
 
@@ -717,12 +717,13 @@ static void fill_occupation( unsigned int bitstring, int occ[], const unsigned i
     /* if this certain orbital is filled, go to next pair (increment of cnt) */
     cnt += bitstring % 2;
     bitstring = bitstring / 2;
+    if( bitstring == 0 ) break;
   }
   //occ[ N ] = L;
   assert( bitstring == 0 );
 }
 
-static const int next_bitstring( const unsigned int address, unsigned int *exc_address, 
+static int next_bitstring( const unsigned int address, unsigned int *exc_address, 
     int occ[], int exc_occ[], int* to_incr, int* augm, double** V, const unsigned int L, const
     unsigned int N, const unsigned int LminN, const int *Y, double *Viikk, int **currpair )
 {
@@ -762,84 +763,92 @@ static const int next_bitstring( const unsigned int address, unsigned int *exc_a
    *
    * The pair is now excited from orbital i to orbital j+1 instead of to orbital j.
    */
-  ++(*currpair)[ 0 ];
-  *exc_address += Y[ *to_incr * LminN + (*currpair)[ 0 ] ];
-  ++(*V);
 
-  /* So now check if this excitation is valid.
-   * Two possibilities why not valid:
-   *    1) The pair I excited, ended up in an orbital that was already occupied.
-   *       Since I increase the orbital number every time and the exc_occ array is sorted from
-   *       low to high, this can only happen if exc_occ[ curr ] == exc_occ[ curr + 1 ].
-   *
-   *    2) I excited the pair too an orbital index too high, i.e. index=L
-   *
-   * If the first case is true, I do the thing in the while loop.
-   * If the second case is true, i go to the if clause after this while loop, this second case can
-   * only occur if *to_incr = N - 1
-   *
-   * If my excitation is OK i just return 1 and exit the function.
+  /* I introduce this while loop, because beforehand this was a recursive function
+   * where instead of the "continue;" command there was a recursive call to this function.
+   * This is a little bit faster, probably due to less pressure on the stack.
+   * Probably still not the best solution
    */
-  while( *to_incr != N - 1 && (*currpair)[ 0 ] == (*currpair)[ 1 ] )
+  while( 1 )
   {
-    /** So apparently you were in case 1:
-     *  So my exc_occ looks like this : .. .. .. .. 5 5 .. .. .. for example.
-     *  The succession of 5 and 5 is wrong ofcourse.
-     *  The second 5 comes for example from 4 that I increased to 4.
-     *  So a pair that comes from 4 cant be placed to 5, but maybe to 6, this I fix
-     *  by increasing the *to_incr and increasing the exc_occ[ *to_incr ]
-     *  So that i get .. .. .. .. 5 6 .. .. ..
-     *
-     *  So first i increase the to_incr.
-     *  Then I reset the pointer currpair to the right exc_occ element.
-     *  I increase the orbital of the electron pair.
-     *  I change the exc_address appropriately.
-     * change the needed interaction term : Viijj => Vii(j+1)(j+1)
-     *
-     * and after that recheck if this was a valid move. And make the right conclusion in my while
-     * loop.
-     */
-    ++(*to_incr);
-    *currpair = &exc_occ[ *to_incr ];
     ++(*currpair)[ 0 ];
     *exc_address += Y[ *to_incr * LminN + (*currpair)[ 0 ] ];
     ++(*V);
-  }
 
-  if( (*currpair)[ 0 ] == L )
-  {
-    /* So apparently i was in case 2:
-     * This means that the pair that I excited from orbital *augm in the original SD cant be 
-     * excited further.
-     * So instead i try to excite the previous orbital and see if this works.
+    /* So now check if this excitation is valid.
+     * Two possibilities why not valid:
+     *    1) The pair I excited, ended up in an orbital that was already occupied.
+     *       Since I increase the orbital number every time and the exc_occ array is sorted from
+     *       low to high, this can only happen if exc_occ[ curr ] == exc_occ[ curr + 1 ].
+     *
+     *    2) I excited the pair too an orbital index too high, i.e. index=L
+     *
+     * If the first case is true, I do the thing in the while loop.
+     * If the second case is true, i go to the if clause after this while loop, this second case can
+     * only occur if *to_incr = N - 1
+     *
+     * If my excitation is OK i just return 1 and exit the function.
      */
-    int i;
-    /* If i am already exciting the first orbital and that failed, I cant do anything more
-     * and i found all the excitations from this particular SD. */
-    if( *augm == 0 )
-      return 0;
+    while( *to_incr != N - 1 && (*currpair)[ 0 ] == (*currpair)[ 1 ] )
+    {
+      /** So apparently you were in case 1:
+       *  So my exc_occ looks like this : .. .. .. .. 5 5 .. .. .. for example.
+       *  The succession of 5 and 5 is wrong ofcourse.
+       *  The second 5 comes for example from 4 that I increased to 4.
+       *  So a pair that comes from 4 cant be placed to 5, but maybe to 6, this I fix
+       *  by increasing the *to_incr and increasing the exc_occ[ *to_incr ]
+       *  So that i get .. .. .. .. 5 6 .. .. ..
+       *
+       *  So first i increase the to_incr.
+       *  Then I reset the pointer currpair to the right exc_occ element.
+       *  I increase the orbital of the electron pair.
+       *  I change the exc_address appropriately.
+       * change the needed interaction term : Viijj => Vii(j+1)(j+1)
+       *
+       * and after that recheck if this was a valid move. And make the right conclusion in my while
+       * loop.
+       */
+      ++(*to_incr);
+      *currpair = &exc_occ[ *to_incr ];
+      ++(*currpair)[ 0 ];
+      *exc_address += Y[ *to_incr * LminN + (*currpair)[ 0 ] ];
+      ++(*V);
+    }
 
-    /* If it was not zero, I just reinitialise exc_occ again to occ. */
-    for( i = *augm ; i < N ; ++i ) exc_occ[ i ] = occ[ i ];
-    /* I decrease augm, and say this is also the pair im going to excite, meaning im going to
-     * excite the previous pair in the SD */
-    *to_incr = --( *augm );
-    *currpair = &exc_occ[ *to_incr ];
+    if( (*currpair)[ 0 ] == L )
+    {
+      /* So apparently i was in case 2:
+       * This means that the pair that I excited from orbital *augm in the original SD cant be 
+       * excited further.
+       * So instead i try to excite the previous orbital and see if this works.
+       */
+      int i;
+      /* If i am already exciting the first orbital and that failed, I cant do anything more
+       * and i found all the excitations from this particular SD. */
+      if( *augm == 0 )
+        return 0;
 
-    /* Put the pointer of the interaction to Viiii with i = occ[ *augm ] */
-    *V = &Viikk[ occ[ *augm ] * L + occ[ *augm ] ];
-    /* Put the exc_address to the original SD */
-    *exc_address = address;
+      /* If it was not zero, I just reinitialise exc_occ again to occ. */
+      for( i = *augm ; i < N ; ++i ) exc_occ[ i ] = occ[ i ];
+      /* I decrease augm, and say this is also the pair im going to excite, meaning im going to
+       * excite the previous pair in the SD */
+      *to_incr = --( *augm );
+      *currpair = &exc_occ[ *to_incr ];
 
-    /* do next_bitstring but this time, i am incrementing the doci pair excited from the new 
-     * orbital */
-    return next_bitstring( address, exc_address, occ, exc_occ, to_incr, augm, V, L, N, LminN, Y, 
-        Viikk, currpair );
+      /* Put the pointer of the interaction to Viiii with i = occ[ *augm ] */
+      *V = &Viikk[ occ[ *augm ] * L + occ[ *augm ] ];
+      /* Put the exc_address to the original SD */
+      *exc_address = address;
+
+      /* do next_bitstring but this time, i am incrementing the doci pair excited from the new 
+       * orbital */
+      continue;
+    }
+    return 1;
   }
-  return 1;
 }
 
-static const int prev_bitstring( const unsigned int address, unsigned int *exc_address, 
+static int prev_bitstring( const unsigned int address, unsigned int *exc_address, 
     int occ[], int exc_occ[], int* to_incr, int* augm, double** V, const unsigned int L, const
     unsigned int N, const unsigned int LminN, const int *Y, double *Viikk, int **currpair )
 {
@@ -879,81 +888,93 @@ static const int prev_bitstring( const unsigned int address, unsigned int *exc_a
    *
    * The pair is now excited from orbital i to orbital j-1 instead of to orbital j.
    */
-  *exc_address -= Y[ *to_incr * LminN + (*currpair)[ 0 ] ];
-  --(*currpair)[ 0 ];
-  --(*V);
 
-  /* So now check if this excitation is valid.
-   * Two possibilities why not valid:
-   *    1) The pair I excited, ended up in an orbital that was already occupied.
-   *       Since I decrease the orbital number every time and the exc_occ array is sorted from
-   *       low to high, this can only happen if exc_occ[ curr ] == exc_occ[ curr - 1 ].
-   *
-   *    2) I excited the pair too an orbital index too low, i.e. index=-1
-   *
-   * If the first case is true, I do the thing in the while loop.
-   * If the second case is true, i go to the if clause after this while loop, this second case can
-   * only occur if *to_incr = 0
-   *
-   * If my excitation is OK i just return 1 and exit the function.
+  /* I introduce this while loop, because beforehand this was a recursive function
+   * where instead of the "continue;" command there was a recursive call to this function.
+   * This is a little bit faster, probably due to less pressure on the stack.
+   * Probably still not the best solution
    */
-  while( *to_incr != 0 && (*currpair)[ 0 ] == (*currpair)[ -1 ] )
+  while( 1 )
   {
-    /** So apparently you were in case 1:
-     *  So my exc_occ looks like this : .. .. .. .. 5 5 .. .. .. for example.
-     *  The succession of 5 and 5 is wrong ofcourse.
-     *  The second 5 comes for example from 6 that I decreased to 5.
-     *  So a pair that comes from 6 cant be placed to 5, but maybe to 4, this I fix
-     *  by decreasing the *to_incr and decreasing the exc_occ[ *to_incr ]
-     *  So that i get .. .. .. .. 4 5 .. .. ..
-     *
-     *  So first i decrease the to_incr.
-     *  Then I reset the pointer currpair to the right exc_occ element.
-     *  I change the exc_address appropriately.
-     *  I decrease the orbital of the electron pair.
-     * change the needed interaction term : Viijj => Vii(j-1)(j-1)
-     *
-     * and after that recheck if this was a valid move. And make the right conclusion in my while
-     * loop.
-     */
-    --(*to_incr);
-    *currpair = &exc_occ[ *to_incr ];
     *exc_address -= Y[ *to_incr * LminN + (*currpair)[ 0 ] ];
     --(*currpair)[ 0 ];
     --(*V);
-  }
 
-  if( (*currpair)[ 0 ] < 0 )
-  {
-    /* So apparently i was in case 2:
-     * This means that the pair that I excited from orbital *augm in the original SD cant be 
-     * excited further.
-     * So instead i try to excite the previous orbital and see if this works.
+    /* So now check if this excitation is valid.
+     * Two possibilities why not valid:
+     *    1) The pair I excited, ended up in an orbital that was already occupied.
+     *       Since I decrease the orbital number every time and the exc_occ array is sorted from
+     *       low to high, this can only happen if exc_occ[ curr ] == exc_occ[ curr - 1 ].
+     *
+     *    2) I excited the pair too an orbital index too low, i.e. index=-1
+     *
+     * If the first case is true, I do the thing in the while loop.
+     * If the second case is true, i go to the if clause after this while loop, this second case can
+     * only occur if *to_incr = 0
+     *
+     * If my excitation is OK i just return 1 and exit the function.
      */
-    int i;
-    /* If i am already exciting the first orbital and that failed, I cant do anything more
-     * and i found all the excitations from this particular SD. */
-    if( *augm == 0 )
-      return 0;
+    while( *to_incr != 0 && (*currpair)[ 0 ] == (*currpair)[ -1 ] )
+    {
+      /** So apparently you were in case 1:
+       *  So my exc_occ looks like this : .. .. .. .. 5 5 .. .. .. for example.
+       *  The succession of 5 and 5 is wrong ofcourse.
+       *  The second 5 comes for example from 6 that I decreased to 5.
+       *  So a pair that comes from 6 cant be placed to 5, but maybe to 4, this I fix
+       *  by decreasing the *to_incr and decreasing the exc_occ[ *to_incr ]
+       *  So that i get .. .. .. .. 4 5 .. .. ..
+       *
+       *  So first i decrease the to_incr.
+       *  Then I reset the pointer currpair to the right exc_occ element.
+       *  I change the exc_address appropriately.
+       *  I decrease the orbital of the electron pair.
+       * change the needed interaction term : Viijj => Vii(j-1)(j-1)
+       *
+       * and after that recheck if this was a valid move. And make the right conclusion in my while
+       * loop.
+       */
+      --(*to_incr);
+      *currpair = &exc_occ[ *to_incr ];
+      *exc_address -= Y[ *to_incr * LminN + (*currpair)[ 0 ] ];
+      --(*currpair)[ 0 ];
+      --(*V);
+    }
 
-    /* If it was not zero, I just reinitialise exc_occ again to occ. */
-    for( i = *augm ; i >= 0 ; --i ) exc_occ[ i ] = occ[ i ];
-    /* I decrease augm, and say this is also the pair im going to excite, meaning im going to
-     * excite the previous pair in the SD */
-    *to_incr = --( *augm );
-    *currpair = &exc_occ[ *to_incr ];
+    if( (*currpair)[ 0 ] < 0 )
+    {
+      /* So apparently i was in case 2:
+       * This means that the pair that I excited from orbital *augm in the original SD cant be 
+       * excited further.
+       * So instead i try to excite the previous orbital and see if this works.
+       */
+      int i;
+      /* If i am already exciting the first orbital and that failed, I cant do anything more
+       * and i found all the excitations from this particular SD. */
+      if( *augm == 0 )
+        return 0;
 
-    /* Put the pointer of the interaction to Viiii with i = occ[ *augm ] */
-    *V = &Viikk[ occ[ *augm ] * L + occ[ *augm ] ];
-    /* Put the exc_address to the original SD */
-    *exc_address = address;
+      /* If it was not zero, I just reinitialise exc_occ again to occ. */
+      for( i = *augm ; i >= 0 ; --i ) exc_occ[ i ] = occ[ i ];
+      /* I decrease augm, and say this is also the pair im going to excite, meaning im going to
+       * excite the previous pair in the SD */
+      *to_incr = --( *augm );
+      *currpair = &exc_occ[ *to_incr ];
 
-    /* do next_bitstring but this time, i am incrementing the doci pair excited from the new 
-     * orbital */
-    return prev_bitstring( address, exc_address, occ, exc_occ, to_incr, augm, V, L, N, LminN, Y, 
-        Viikk, currpair );
+      /* Put the pointer of the interaction to Viiii with i = occ[ *augm ] */
+      *V = &Viikk[ occ[ *augm ] * L + occ[ *augm ] ];
+      /* Put the exc_address to the original SD */
+      *exc_address = address;
+
+      /* do next_bitstring but this time, i am incrementing the doci pair excited from the new 
+       * orbital */
+      continue;
+      /*
+         return prev_bitstring( address, exc_address, occ, exc_occ, to_incr, augm, V, L, N, LminN, Y, 
+         Viikk, currpair );
+         */
+    }
+    return 1;
   }
-  return 1;
 }
 
 static void increment_occ( int occ[], int exc_occ[], const unsigned int N, const unsigned int LminN )
