@@ -64,7 +64,7 @@ else ()
     if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
 	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -xHOST -O3")
     else()
-	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -O3")
+	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32 -march=native -O3")
     endif()
 endif ( LOWOPT )
 
